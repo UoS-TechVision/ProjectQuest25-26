@@ -1,34 +1,45 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code development on **Project Quest 25/26** — a 2.5D time-travel courier obstacle course game.
 
 ## Project Overview
 
-This is a **Unity 6000.3.10f1** project using the **Universal Render Pipeline (URP)**. The project includes a basic 3D scene setup with modern Unity features and is configured for cross-platform development with Linux build tools included.
+**Project Quest** is a 2.5D level-based obstacle course game where the player acts as a courier delivering packages across historical and future eras. Each era presents unique environmental hazards, and the package grants a special ability to overcome them. Using the ability reduces end-of-level pay, creating a risk/reward trade-off.
 
-**Key Technologies:**
-- Unity Engine 6000.3.10f1
+**Engine & Platform:**
+- Unity 6000.3.10f1
 - Universal Render Pipeline (URP)
 - New Input System (com.unity.inputsystem)
-- Visual Scripting support
-- Timeline for animation/cinematic work
-- AI Navigation package for NPC pathfinding
-- Test Framework for unit testing
+- PC Primary (Windows), WebGL optional
+- Target Resolution: 1920×1080
 
-## Project Structure
+## Project Structure (Per spec.md)
 
 ```
-Assets/                    # Game content, scripts, scenes, and art
-├── Scenes/               # Unity scene files
-├── Scripts/              # C# game logic (organized by subsystem)
-├── Settings/             # URP rendering profiles and configurations
-├── TutorialInfo/         # Sample tutorial setup (can be removed)
-└── ...
+Assets/
+├── _Game/                        # All game systems and assets
+│   ├── Scripts/
+│   │   ├── Player/              # PlayerController, PlayerAbility, PlayerAnimator
+│   │   ├── Abilities/           # IAbility, SpeedBoostAbility, BurnIceAbility, etc.
+│   │   ├── Economy/             # PayManager, QuotaManager
+│   │   ├── Levels/              # LevelManager, LevelConfig, ShrinkingLevel
+│   │   ├── Hazards/             # BaseHazard, IceWall, ElectronicObstacle
+│   │   └── UI/                  # HUDController, EndOfLevelUI
+│   ├── ScriptableObjects/
+│   │   └── Levels/              # LevelConfig assets for each level
+│   ├── Prefabs/                 # Game object prefabs
+│   ├── Animations/              # Animation clips and controllers
+│   ├── Audio/                   # Sound effects and music
+│   └── Materials/               # Shader materials and physics materials
+├── Scenes/                       # Scene files (MainMenu, Level1_Cave, Level2_IceAge, etc.)
+├── Settings/                     # URP rendering profiles
+├── TutorialInfo/                 # Sample tutorial (can be removed)
+└── Prefabs/                      # Pre-existing prefabs (ice_tile, penguin, etc. — to be organized)
 
-ProjectSettings/          # Unity project configuration
-Packages/                 # Package dependencies (manifest.json, packages-lock.json)
-Library/                  # Unity internal cache (gitignored)
-Logs/                     # Build and editor logs (gitignored)
+ProjectSettings/                  # Unity project configuration
+Packages/                         # Package dependencies
+Library/                          # Unity internal cache (gitignored)
+Logs/                            # Build logs (gitignored)
 ```
 
 ## Common Development Commands
@@ -83,25 +94,93 @@ The project uses the **New Input System** (com.unity.inputsystem 1.18.0):
 - Create custom input maps in the Input Actions editor (double-click .inputactions file)
 - Reference actions in scripts via `InputAction` or the generated code
 
-### Script Organization
+### Script Organization (Spec-Driven)
 
-When adding new scripts to `Assets/Scripts/`, organize by feature/system:
+All scripts must be placed in `Assets/_Game/Scripts/` organized by domain:
+
+**Player Domain:**
+- `Player/PlayerController.cs` — Handles physics movement (WASD, jump, crouch), reads input, applies gravity
+- `Player/PlayerAbility.cs` — Ability dispatcher; calls ability.Use() on Q press, updates PayManager
+- `Player/PlayerAnimator.cs` — Handles player animation state
+
+**Ability System (Interface-Driven):**
+- `Abilities/IAbility.cs` — Interface: `AbilityName`, `CanUse()`, `Use()`, `GetResourcePercent()`
+- `Abilities/SpeedBoostAbility.cs` — Level 1 ability
+- `Abilities/BurnIceAbility.cs` — Level 2 ability
+- `Abilities/RevivalAbility.cs` — Level 3 ability (passive)
+- `Abilities/DisableObstaclesAbility.cs` — Level 4 ability
+- `Abilities/BlinkAbility.cs` — Level 5 ability
+
+**Economy & Progression:**
+- `Economy/PayManager.cs` — Singleton; manages pay, fires `OnPayChanged` event
+- `Economy/QuotaManager.cs` — Handles level completion and failure states
+
+**Level System:**
+- `Levels/LevelManager.cs` — Scene setup, dependency injection, level start/end
+- `Levels/LevelConfig.cs` — ScriptableObject defining basePay, ability, gravity, hazards
+- `Levels/ShrinkingLevel.cs` — Implements shrinking safe-space mechanic
+
+**Hazards:**
+- `Hazards/BaseHazard.cs` — Base class for environmental hazards
+- `Hazards/IceWall.cs` — Burnable ice wall obstacle
+- `Hazards/ElectronicObstacle.cs` — Disableable electronic hazard
+
+**UI:**
+- `UI/HUDController.cs` — In-game HUD (pay display, ability bar, level name)
+- `UI/EndOfLevelUI.cs` — End screen (pay breakdown, buttons)
+
+## MVP Implementation Priority (Per spec.md Section 8)
+
+**CRITICAL (Must complete first):**
+1. `PlayerController.cs` — Walk, run, jump, crouch with proper IsGrounded() detection
+2. `IAbility` interface + `PlayerAbility.cs` dispatcher
+3. `PayManager` singleton with `OnPayChanged` event
+4. `LevelConfig` ScriptableObject template
+5. `SpeedBoostAbility.cs` — Level 1 ability
+6. Level 1 scene (Cave) blockout with ability wired
+7. `BurnIceAbility.cs` + `IceWall.cs` hazard
+8. Level 2 scene (Ice Age) with `ShrinkingLevel` timer pressure
+9. Basic HUD (pay display + ability resource bar)
+10. End-of-level UI + `QuotaManager.cs`
+
+**Post-MVP:** Levels 3, 4, 5 and their abilities
+
+## Key Architectural Contracts (MUST implement exactly)
+
+**IAbility Interface:**
+```csharp
+public interface IAbility
+{
+    string AbilityName { get; }
+    bool CanUse();                    // Returns false when resource exhausted
+    void Use();                       // Executes ability effect
+    float GetResourcePercent();       // 0–1 for HUD bar
+}
 ```
-Assets/Scripts/
-├── Player/           # Player character logic
-├── Enemies/          # NPC and enemy behavior
-├── UI/              # UI scripts and managers
-├── Managers/        # Game managers (GameManager, AudioManager, etc.)
-├── Utilities/       # Reusable helper functions
-└── Editor/          # Editor-only tools and inspectors
+
+**PayManager Events:**
+```csharp
+public class PayManager : MonoBehaviour
+{
+    public static event Action<int> OnPayChanged;  // Fired on every change
+    public static int CurrentPay { get; private set; }
+    public static void DeductAbilityUsage(int amount)
+    {
+        CurrentPay = Mathf.Max(0, CurrentPay - amount);
+        OnPayChanged?.Invoke(CurrentPay);
+    }
+}
 ```
+
+**No FindObjectOfType() — Use dependency injection via LevelManager instead.**
 
 ## Important Files & Configuration
 
 - **ProjectSettings/ProjectSettings.asset**: Core project settings (resolution, quality levels, platforms)
 - **ProjectSettings/URPProjectSettings.asset**: URP-specific global settings
-- **Packages/manifest.json**: Declared package dependencies (edit to add/remove packages)
-- **Packages/packages-lock.json**: Locked package versions (auto-generated, don't edit directly)
+- **ProjectSettings/Physics2DSettings.asset**: 2D physics configuration
+- **Packages/manifest.json**: Declared package dependencies
+- **Packages/packages-lock.json**: Locked package versions (auto-generated)
 
 ## Testing
 
@@ -153,9 +232,31 @@ The project includes multiple quality levels in `ProjectSettings/QualitySettings
 - Adjust draw call counts, shadow settings, and LOD bias per quality level
 - Use `QualitySettings.GetQualityLevel()` / `SetQualityLevel()` to change quality at runtime
 
+## Coding Conventions (Per spec.md Section 9)
+
+**Naming:**
+- Classes: `PascalCase` (e.g., `PlayerController`, `BurnIceAbility`)
+- Methods: `PascalCase` (e.g., `Use()`, `CanUse()`, `GetResourcePercent()`)
+- Private fields: `_camelCase` with underscore (e.g., `_moveSpeed`, `_isGrounded`)
+- Public serialized fields: `camelCase` without prefix (e.g., `moveSpeed`, `basePay`). Use `[SerializeField]` for Inspector exposure.
+- Constants: `ALL_CAPS_SNAKE_CASE`
+
+**Documentation:**
+- Every public method must have a one-line XML doc comment: `/// <summary>`
+- Complex algorithms need inline comments explaining logic
+- ScriptableObject fields must have `[Tooltip("...")]` for non-technical users
+
+**Unity Best Practices:**
+- **NO FindObjectOfType() at runtime** — use dependency injection instead
+- Cache component references in `Awake()` — never call `GetComponent()` in `Update()`
+- Physics ops go in `FixedUpdate()`, input reads in `Update()`
+- All magic numbers must be extracted to `[SerializeField]` fields with defaults
+- Use `Physics2D.OverlapCircle()` for ground detection, not trigger colliders
+
 ## Debugging Tips
 
 - Use the **Console** window for runtime logs
 - **Debug.Log()**, **Debug.LogWarning()**, **Debug.LogError()** for output
 - The Profiler (Window > Analysis > Profiler) shows CPU, GPU, memory usage
 - Use **Play Mode Debug** in the Inspector to inspect objects while the game runs
+- Physics2D debugging: enable gizmos and constraint visualization in Scene view
