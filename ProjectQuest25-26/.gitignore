@@ -12,7 +12,6 @@ UserSettings/
 Assets/**/*.tmp
 Assets/**/*.backup
 Assets/**/*.sample
-Assets/Voxels/Voxel\ Assets/
 
 # --- Build Outputs ---
 *.apk

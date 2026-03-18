@@ -54,17 +54,9 @@ public static class SceneSetup
         so.FindProperty("iceTilePrefab").objectReferenceValue = iceTilePrefab;
         so.ApplyModifiedProperties();
 
-        // Position Main Camera for 2.5D side-scrolling view
-        Camera mainCamera = Camera.main;
-        if (mainCamera != null)
-        {
-            mainCamera.transform.position = new Vector3(125f, 30f, -20f);
-            mainCamera.transform.LookAt(new Vector3(125f, 0f, 100f));
-            EditorSceneManager.MarkSceneDirty(scene);
-        }
-
         // Place penguin at the centre of the generated tilemap
-        if (GameObject.Find("penguin") == null)
+        GameObject penguinGO = GameObject.Find("penguin");
+        if (penguinGO == null)
         {
             GameObject penguinPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/penguin.prefab");
             if (penguinPrefab != null)
@@ -78,14 +70,38 @@ public static class SceneSetup
                 float centerX = (gridWidth * tileSize) / 2f;
                 float centerZ = (gridDepth * tileSize) / 2f;
 
-                GameObject penguin = PrefabUtility.InstantiatePrefab(penguinPrefab) as GameObject;
-                penguin.transform.position = new Vector3(centerX, 2f, centerZ);
+                penguinGO = PrefabUtility.InstantiatePrefab(penguinPrefab) as GameObject;
+                penguinGO.transform.position = new Vector3(centerX, 2f, centerZ);
                 EditorSceneManager.MarkSceneDirty(scene);
             }
             else
             {
                 Debug.LogWarning("penguin.prefab not found in Assets/Prefabs/ — skipping placement.");
             }
+        }
+
+        // Attach CameraFollow to Main Camera, targeting the penguin
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            GameObject cameraGO = new GameObject("Main Camera");
+            cameraGO.tag = "MainCamera";
+            mainCamera = cameraGO.AddComponent<Camera>();
+            cameraGO.AddComponent<AudioListener>();
+            EditorSceneManager.MarkSceneDirty(scene);
+            Debug.Log("SceneSetup: No Main Camera found — created one.");
+        }
+
+        if (mainCamera != null && penguinGO != null)
+        {
+            CameraFollow follow = mainCamera.GetComponent<ProjectQuest.Player.CameraFollow>();
+            if (follow == null)
+                follow = mainCamera.gameObject.AddComponent<ProjectQuest.Player.CameraFollow>();
+
+            SerializedObject cameraSo = new SerializedObject(follow);
+            cameraSo.FindProperty("target").objectReferenceValue = penguinGO.transform;
+            cameraSo.ApplyModifiedProperties();
+            EditorSceneManager.MarkSceneDirty(scene);
         }
 
         // Frame the Scene view over the centre of the tilemap (250×250 world units)
