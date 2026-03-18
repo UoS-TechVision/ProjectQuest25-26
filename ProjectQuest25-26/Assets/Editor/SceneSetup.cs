@@ -48,18 +48,11 @@ public static class SceneSetup
             return;
         }
 
-        // Set the serialized fields via reflection (since they're private)
-        var snowField = tilemapGen.GetType().GetField("snowTilePrefab",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var iceField = tilemapGen.GetType().GetField("iceTilePrefab",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-        if (snowField != null)
-            snowField.SetValue(tilemapGen, snowTilePrefab);
-        if (iceField != null)
-            iceField.SetValue(tilemapGen, iceTilePrefab);
-
-        EditorUtility.SetDirty(tilemapGen);
+        // Set serialized fields via SerializedObject so Unity properly saves them to the scene
+        SerializedObject so = new SerializedObject(tilemapGen);
+        so.FindProperty("snowTilePrefab").objectReferenceValue = snowTilePrefab;
+        so.FindProperty("iceTilePrefab").objectReferenceValue = iceTilePrefab;
+        so.ApplyModifiedProperties();
 
         // Position Main Camera for 2.5D side-scrolling view
         Camera mainCamera = Camera.main;
@@ -68,6 +61,31 @@ public static class SceneSetup
             mainCamera.transform.position = new Vector3(125f, 30f, -20f);
             mainCamera.transform.LookAt(new Vector3(125f, 0f, 100f));
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        // Place penguin at the centre of the generated tilemap
+        if (GameObject.Find("penguin") == null)
+        {
+            GameObject penguinPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/penguin.prefab");
+            if (penguinPrefab != null)
+            {
+                // Derive centre from the TilemapGenerator's serialized grid settings
+                SerializedObject tilemapSo = new SerializedObject(tilemapGen);
+                float gridWidth = tilemapSo.FindProperty("gridWidth").intValue;
+                float gridDepth = tilemapSo.FindProperty("gridDepth").intValue;
+                float tileSize  = tilemapSo.FindProperty("tileSize").floatValue;
+
+                float centerX = (gridWidth * tileSize) / 2f;
+                float centerZ = (gridDepth * tileSize) / 2f;
+
+                GameObject penguin = PrefabUtility.InstantiatePrefab(penguinPrefab) as GameObject;
+                penguin.transform.position = new Vector3(centerX, 2f, centerZ);
+                EditorSceneManager.MarkSceneDirty(scene);
+            }
+            else
+            {
+                Debug.LogWarning("penguin.prefab not found in Assets/Prefabs/ — skipping placement.");
+            }
         }
 
         // Frame the Scene view over the centre of the tilemap (250×250 world units)

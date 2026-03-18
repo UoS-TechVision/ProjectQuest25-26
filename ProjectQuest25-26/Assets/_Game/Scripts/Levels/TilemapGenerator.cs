@@ -31,6 +31,11 @@ namespace ProjectQuest.Levels
 
         private GameObject _tilemapRoot;
 
+        private void Start()
+        {
+            GenerateTilemap();
+        }
+
         /// <summary>
         /// Generates the tilemap by instantiating tiles in a grid pattern.
         /// </summary>
